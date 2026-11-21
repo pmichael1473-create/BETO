@@ -1,0 +1,594 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidPlayer(data) {
+      return data.keys().hasAll([
+          'uid',
+          'displayName',
+          'avatar',
+          'balance',
+          'totalWins',
+          'totalLosses',
+          'winStreak',
+          'title',
+          'lastDailyClaimAt',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'avatar',
+          'balance',
+          'totalWins',
+          'totalLosses',
+          'winStreak',
+          'title',
+          'lastDailyClaimAt',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.uid is string
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.displayName is string
+        && data.displayName.size() >= 2
+        && data.displayName.size() <= 40
+        && data.avatar is string
+        && data.avatar.size() <= 500
+        && data.balance is number
+        && data.balance >= 0
+        && data.balance <= 10000000
+        && data.totalWins is int
+        && data.totalWins >= 0
+        && data.totalLosses is int
+        && data.totalLosses >= 0
+        && data.winStreak is int
+        && data.winStreak >= 0
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 60
+        && data.lastDailyClaimAt is number
+        && data.lastDailyClaimAt >= 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidLeaderboardEntry(data) {
+      return data.keys().hasAll([
+          'uid',
+          'displayName',
+          'avatar',
+          'balance',
+          'totalWins',
+          'totalLosses',
+          'title',
+          'isPublic',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'avatar',
+          'balance',
+          'totalWins',
+          'totalLosses',
+          'title',
+          'isPublic',
+          'updatedAt'
+        ])
+        && data.uid is string
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.displayName is string
+        && data.displayName.size() >= 2
+        && data.displayName.size() <= 40
+        && data.avatar is string
+        && data.avatar.size() <= 500
+        && data.balance is number
+        && data.balance >= 0
+        && data.balance <= 10000000
+        && data.totalWins is int
+        && data.totalWins >= 0
+        && data.totalLosses is int
+        && data.totalLosses >= 0
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 60
+        && data.isPublic is bool
+        && data.isPublic == true
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidGameType(gameType) {
+      return gameType is string && gameType in ['whot', 'checkers', 'rps', 'tictactoe', 'memory'];
+    }
+
+    function isValidRoomStatus(status) {
+      return status is string && status in ['waiting', 'in_progress', 'completed'];
+    }
+
+    function isValidVisibility(visibility) {
+      return visibility is string && visibility in ['public', 'private'];
+    }
+
+    function isValidSeatProfile(profile) {
+      return profile is map
+        && profile.keys().hasAll(['name', 'avatar'])
+        && profile.keys().hasOnly(['name', 'avatar'])
+        && profile.name is string
+        && profile.name.size() >= 2
+        && profile.name.size() <= 40
+        && profile.avatar is string
+        && profile.avatar.size() <= 500;
+    }
+
+    function isValidRoom(data) {
+      return data.keys().hasAll([
+          'id',
+          'title',
+          'gameType',
+          'hostId',
+          'hostName',
+          'hostAvatar',
+          'playerIds',
+          'playerProfiles',
+          'stake',
+          'minPlayers',
+          'maxPlayers',
+          'currentPlayers',
+          'status',
+          'visibility',
+          'inviteToken',
+          'invitedHandles',
+          'winnerId',
+          'gameState',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'title',
+          'gameType',
+          'hostId',
+          'hostName',
+          'hostAvatar',
+          'playerIds',
+          'playerProfiles',
+          'stake',
+          'minPlayers',
+          'maxPlayers',
+          'currentPlayers',
+          'status',
+          'visibility',
+          'inviteToken',
+          'invitedHandles',
+          'winnerId',
+          'gameState',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.title is string
+        && data.title.size() >= 2
+        && data.title.size() <= 60
+        && isValidGameType(data.gameType)
+        && isValidId(data.hostId)
+        && data.hostName is string
+        && data.hostName.size() >= 2
+        && data.hostName.size() <= 40
+        && data.hostAvatar is string
+        && data.hostAvatar.size() <= 500
+        && data.playerIds is list
+        && data.playerIds.size() >= 1
+        && data.playerIds.size() <= 6
+        && data.playerIds[0] is string
+        && isValidId(data.playerIds[0])
+        && data.playerIds[0] == data.hostId
+        && data.playerProfiles is map
+        && data.playerProfiles.keys().size() == data.playerIds.size()
+        && data.playerProfiles.keys().hasAll(data.playerIds)
+        && data.playerProfiles.keys().hasOnly(data.playerIds)
+        && (!(request.auth.uid in data.playerIds) || isValidSeatProfile(data.playerProfiles[request.auth.uid]))
+        && data.stake is number
+        && data.stake >= 10
+        && data.stake <= 100000
+        && data.minPlayers is int
+        && data.minPlayers >= 2
+        && data.minPlayers <= data.maxPlayers
+        && data.maxPlayers is int
+        && data.maxPlayers >= 2
+        && data.maxPlayers <= 6
+        && data.currentPlayers is int
+        && data.currentPlayers == data.playerIds.size()
+        && data.currentPlayers >= 1
+        && data.currentPlayers <= data.maxPlayers
+        && isValidRoomStatus(data.status)
+        && (data.status == 'waiting' || data.currentPlayers >= 2)
+        && isValidVisibility(data.visibility)
+        && data.inviteToken is string
+        && data.inviteToken.size() <= 64
+        && (
+          (data.visibility == 'public' && data.inviteToken == '')
+          || (
+            data.visibility == 'private'
+            && data.inviteToken.size() >= 8
+            && data.inviteToken.matches('^[a-zA-Z0-9_\\-]+$')
+          )
+        )
+        && data.invitedHandles is list
+        && data.invitedHandles.size() <= 20
+        && (data.visibility == 'public' ? data.invitedHandles.size() == 0 : true)
+        && (
+          data.invitedHandles.size() == 0
+          || (
+            data.invitedHandles[0] is string
+            && data.invitedHandles[0].size() >= 2
+            && data.invitedHandles[0].size() <= 100
+          )
+        )
+        && data.winnerId is string
+        && data.winnerId.size() <= 128
+        && data.gameState is map
+        && data.gameState.keys().size() <= 16
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isInvitedToPrivateRoom(roomData) {
+      return roomData.visibility == 'public'
+        || roomData.invitedHandles.size() == 0
+        || (
+          request.auth.token.email != null
+          && request.auth.token.email.lower() in roomData.invitedHandles
+        )
+        || (
+          exists(/databases/$(database)/documents/players/$(request.auth.uid))
+          && get(/databases/$(database)/documents/players/$(request.auth.uid)).data.displayName.lower() in roomData.invitedHandles
+        );
+    }
+
+    function isValidWithdrawalAmount(amount) {
+      return amount is number && amount in [1700, 3500, 5300, 8000, 10700];
+    }
+
+    function isValidDepositTransaction(data) {
+      return data.keys().hasAll([
+          'id',
+          'uid',
+          'type',
+          'provider',
+          'amountNaira',
+          'currency',
+          'status',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'uid',
+          'type',
+          'provider',
+          'amountNaira',
+          'currency',
+          'status',
+          'createdAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.type is string
+        && data.type == 'deposit'
+        && data.provider is string
+        && data.provider == 'squad'
+        && data.amountNaira is number
+        && data.amountNaira >= 100
+        && data.amountNaira <= 500000
+        && data.currency is string
+        && data.currency == 'NGN'
+        && data.status is string
+        && data.status == 'success'
+        && data.createdAt is timestamp;
+    }
+
+    function isValidWithdrawalTransaction(data) {
+      return data.keys().hasAll([
+          'id',
+          'uid',
+          'displayName',
+          'type',
+          'provider',
+          'amountNaira',
+          'balanceAfter',
+          'currency',
+          'status',
+          'bankName',
+          'accountName',
+          'accountNumber',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'uid',
+          'displayName',
+          'type',
+          'provider',
+          'amountNaira',
+          'balanceAfter',
+          'currency',
+          'status',
+          'bankName',
+          'accountName',
+          'accountNumber',
+          'createdAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.displayName is string
+        && data.displayName.size() >= 2
+        && data.displayName.size() <= 40
+        && data.type is string
+        && data.type == 'withdrawal'
+        && data.provider is string
+        && data.provider == 'beto_payout'
+        && isValidWithdrawalAmount(data.amountNaira)
+        && data.balanceAfter is number
+        && data.balanceAfter >= 0
+        && data.balanceAfter <= 10000000
+        && data.currency is string
+        && data.currency == 'NGN'
+        && data.status is string
+        && data.status == 'pending'
+        && data.bankName is string
+        && data.bankName.size() >= 2
+        && data.bankName.size() <= 60
+        && data.accountName is string
+        && data.accountName.size() >= 2
+        && data.accountName.size() <= 80
+        && data.accountNumber is string
+        && data.accountNumber.size() == 10
+        && data.accountNumber.matches('^[0-9]{10}$')
+        && data.createdAt is timestamp;
+    }
+
+    function isValidTransaction(data) {
+      return isValidDepositTransaction(data) || isValidWithdrawalTransaction(data);
+    }
+
+    match /players/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId)
+        && isVerified()
+        && isOwner(userId)
+        && isValidPlayer(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isVerified()
+        && isOwner(userId)
+        && isValidPlayer(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName',
+          'avatar',
+          'balance',
+          'totalWins',
+          'totalLosses',
+          'winStreak',
+          'title',
+          'lastDailyClaimAt',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /leaderboard/{userId} {
+      allow get: if isValidId(userId) && isSignedIn() && existing().isPublic == true;
+      allow list: if isSignedIn() && resource.data.isPublic == true;
+      allow create: if isValidId(userId)
+        && isVerified()
+        && isOwner(userId)
+        && isValidLeaderboardEntry(incoming())
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isVerified()
+        && isOwner(userId)
+        && isValidLeaderboardEntry(incoming())
+        && incoming().uid == existing().uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName',
+          'avatar',
+          'balance',
+          'totalWins',
+          'totalLosses',
+          'title',
+          'isPublic',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /rooms/{roomId} {
+      allow get: if isValidId(roomId) && isSignedIn();
+      allow list: if isSignedIn() && (
+        resource.data.visibility == 'public'
+        || request.auth.uid in resource.data.playerIds
+      );
+      allow create: if isValidId(roomId)
+        && isVerified()
+        && isValidRoom(incoming())
+        && incoming().id == roomId
+        && incoming().hostId == request.auth.uid
+        && incoming().minPlayers == 2
+        && incoming().playerIds.size() == 1
+        && incoming().playerIds[0] == request.auth.uid
+        && incoming().currentPlayers == 1
+        && incoming().status == 'waiting'
+        && incoming().winnerId == ''
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(roomId)
+        && isVerified()
+        && isValidRoom(incoming())
+        && existing().status != 'completed'
+        && incoming().id == existing().id
+        && incoming().title == existing().title
+        && incoming().gameType == existing().gameType
+        && incoming().hostId == existing().hostId
+        && incoming().hostName == existing().hostName
+        && incoming().hostAvatar == existing().hostAvatar
+        && incoming().stake == existing().stake
+        && incoming().minPlayers == existing().minPlayers
+        && incoming().maxPlayers == existing().maxPlayers
+        && incoming().visibility == existing().visibility
+        && incoming().inviteToken == existing().inviteToken
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Real player joins waiting room (public = open to anyone; private = invited only)
+          (
+            existing().status == 'waiting'
+            && existing().currentPlayers < existing().maxPlayers
+            && !(request.auth.uid in existing().playerIds)
+            && isInvitedToPrivateRoom(existing())
+            && incoming().invitedHandles == existing().invitedHandles
+            && incoming().playerIds.size() == existing().currentPlayers + 1
+            && incoming().playerIds.hasAll(existing().playerIds)
+            && request.auth.uid in incoming().playerIds
+            && incoming().playerProfiles.diff(existing().playerProfiles).affectedKeys().hasOnly([request.auth.uid])
+            && (
+              (incoming().currentPlayers == existing().maxPlayers && incoming().status == 'in_progress')
+              || (incoming().currentPlayers < existing().maxPlayers && incoming().status == 'waiting')
+            )
+            && incoming().winnerId == ''
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'playerIds',
+              'playerProfiles',
+              'currentPlayers',
+              'status',
+              'gameState',
+              'updatedAt'
+            ])
+          )
+          // Action 2: Host starts match once minimum 2 players are seated
+          || (
+            existing().status == 'waiting'
+            && existing().hostId == request.auth.uid
+            && existing().currentPlayers >= 2
+            && incoming().invitedHandles == existing().invitedHandles
+            && incoming().playerIds == existing().playerIds
+            && incoming().playerProfiles == existing().playerProfiles
+            && incoming().currentPlayers == existing().currentPlayers
+            && incoming().status == 'in_progress'
+            && incoming().winnerId == ''
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'status',
+              'gameState',
+              'updatedAt'
+            ])
+          )
+          // Action 3: Seated player submits a move or concludes the match
+          || (
+            existing().status == 'in_progress'
+            && existing().currentPlayers >= 2
+            && request.auth.uid in existing().playerIds
+            && incoming().invitedHandles == existing().invitedHandles
+            && incoming().playerIds == existing().playerIds
+            && incoming().playerProfiles == existing().playerProfiles
+            && incoming().currentPlayers == existing().currentPlayers
+            && (
+              (incoming().status == 'in_progress' && incoming().winnerId == '')
+              || (
+                incoming().status == 'completed'
+                && (
+                  incoming().winnerId in existing().playerIds
+                  || incoming().winnerId == 'tie'
+                )
+              )
+            )
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'gameState',
+              'status',
+              'winnerId',
+              'updatedAt'
+            ])
+          )
+          // Action 4: Host updates invitedHandles allowlist on a private waiting room
+          || (
+            existing().status == 'waiting'
+            && existing().visibility == 'private'
+            && existing().hostId == request.auth.uid
+            && incoming().playerIds == existing().playerIds
+            && incoming().playerProfiles == existing().playerProfiles
+            && incoming().currentPlayers == existing().currentPlayers
+            && incoming().status == existing().status
+            && incoming().winnerId == existing().winnerId
+            && incoming().gameState == existing().gameState
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'invitedHandles',
+              'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(roomId)
+        && isVerified()
+        && existing().hostId == request.auth.uid
+        && existing().status == 'waiting';
+    }
+
+    match /transactions/{txRef} {
+      allow get: if isValidId(txRef) && isSignedIn() && (resource == null || existing().uid == request.auth.uid);
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isValidId(txRef)
+        && isVerified()
+        && isValidTransaction(incoming())
+        && incoming().id == txRef
+        && incoming().createdAt == request.time
+        && (
+          incoming().type == 'deposit'
+          || (
+            incoming().type == 'withdrawal'
+            && exists(/databases/$(database)/documents/players/$(request.auth.uid))
+            && getAfter(/databases/$(database)/documents/players/$(request.auth.uid)).data.balance
+              == get(/databases/$(database)/documents/players/$(request.auth.uid)).data.balance - incoming().amountNaira
+            && incoming().balanceAfter
+              == getAfter(/databases/$(database)/documents/players/$(request.auth.uid)).data.balance
+          )
+        );
+      allow update, delete: if false;
+    }
+  }
+}

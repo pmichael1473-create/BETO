@@ -1,0 +1,7 @@
+{
+  "name": "BetArena // Real-Time Social Betting & Multiplayer Games",
+  "description": "Social gaming platform with virtual currency betting, global leaderboards, and playable Whot, Checkers, Rock Paper Scissors, Tic-Tac-Toe, and Memory Match games.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

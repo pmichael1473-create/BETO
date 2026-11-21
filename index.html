@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BetArena // Real-Time Social Betting & Multiplayer Games</title>
+    <meta name="description" content="Social gaming platform with Nigerian Naira (₦) stakes, global leaderboards, and playable Whot, Checkers, Rock Paper Scissors, X and O, and Memory Match games." />
+    <meta property="og:title" content="BetArena // Real-Time Social Betting & Multiplayer Games" />
+    <meta property="og:description" content="Social gaming platform with Nigerian Naira (₦) stakes, global leaderboards, and playable Whot, Checkers, Rock Paper Scissors, X and O, and Memory Match games." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('betarena-theme');
+          var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+          document.documentElement.classList.toggle('dark', theme === 'dark');
+          document.documentElement.style.colorScheme = theme;
+        } catch (e) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+  </head>
+  <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

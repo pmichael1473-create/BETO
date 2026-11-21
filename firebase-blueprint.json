@@ -1,0 +1,376 @@
+{
+  "entities": {
+    "Player": {
+      "title": "Player",
+      "description": "Authenticated player account profile, Naira (₦ NGN) balance, and match statistics.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the player.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Player display handle shown in arenas and leaderboards.",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "avatar": {
+          "type": "string",
+          "description": "URL of the player's avatar image.",
+          "maxLength": 500
+        },
+        "balance": {
+          "type": "number",
+          "description": "Current Naira (₦ NGN) balance held by the player."
+        },
+        "totalWins": {
+          "type": "integer",
+          "description": "Cumulative match victories."
+        },
+        "totalLosses": {
+          "type": "integer",
+          "description": "Cumulative match defeats."
+        },
+        "winStreak": {
+          "type": "integer",
+          "description": "Current consecutive win streak."
+        },
+        "title": {
+          "type": "string",
+          "description": "Player rank or arena title.",
+          "maxLength": 60
+        },
+        "lastDailyClaimAt": {
+          "type": "number",
+          "description": "Epoch milliseconds of the last daily bonus claim."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the player account was registered."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the latest account update."
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "avatar",
+        "balance",
+        "totalWins",
+        "totalLosses",
+        "winStreak",
+        "title",
+        "lastDailyClaimAt",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "Public non-PII ranking summary for real registered players.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the player.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Public arena handle.",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "avatar": {
+          "type": "string",
+          "description": "URL of the player's avatar image.",
+          "maxLength": 500
+        },
+        "balance": {
+          "type": "number",
+          "description": "Current Naira (₦ NGN) balance."
+        },
+        "totalWins": {
+          "type": "integer",
+          "description": "Cumulative wins."
+        },
+        "totalLosses": {
+          "type": "integer",
+          "description": "Cumulative losses."
+        },
+        "title": {
+          "type": "string",
+          "description": "Arena rank title.",
+          "maxLength": 60
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Indicates public leaderboard visibility."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the last ranking sync."
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "avatar",
+        "balance",
+        "totalWins",
+        "totalLosses",
+        "title",
+        "isPublic",
+        "updatedAt"
+      ]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "Real-time multiplayer match room requiring a minimum of 2 real players, joinable from the lobby or via shareable invite link.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique room identifier used in invite links.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "description": "Room title displayed in the lobby.",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "gameType": {
+          "type": "string",
+          "enum": ["whot", "checkers", "rps", "tictactoe", "memory"],
+          "description": "Game mode played in this room."
+        },
+        "hostId": {
+          "type": "string",
+          "description": "UID of the player who created the room.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "hostName": {
+          "type": "string",
+          "description": "Display handle of the host player.",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "hostAvatar": {
+          "type": "string",
+          "description": "Avatar URL of the host player.",
+          "maxLength": 500
+        },
+        "playerIds": {
+          "type": "array",
+          "description": "Ordered list of seated player UIDs (1 to maxPlayers, minimum 2 required to start)."
+        },
+        "playerProfiles": {
+          "type": "object",
+          "description": "Map of seated player UIDs to display name and avatar."
+        },
+        "stake": {
+          "type": "number",
+          "description": "Naira (₦ NGN) stake per player."
+        },
+        "minPlayers": {
+          "type": "integer",
+          "description": "Minimum players required before a match can start (2)."
+        },
+        "maxPlayers": {
+          "type": "integer",
+          "description": "Maximum players allowed in the room (2 to 6)."
+        },
+        "currentPlayers": {
+          "type": "integer",
+          "description": "Current number of seated players (1 to maxPlayers)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "in_progress", "completed"],
+          "description": "Current lifecycle status of the room."
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "private"],
+          "description": "Whether the room is open to anyone (public) or restricted to invited players (private)."
+        },
+        "inviteToken": {
+          "type": "string",
+          "description": "Secret invite token required for private invite links (empty string for public rooms).",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]*$"
+        },
+        "invitedHandles": {
+          "type": "array",
+          "description": "Optional lowercase allowlist of invited player usernames or emails for private rooms (empty when anyone with the private link may join)."
+        },
+        "winnerId": {
+          "type": "string",
+          "description": "UID of the match winner, 'tie' for draws, or empty string if undecided.",
+          "maxLength": 128
+        },
+        "gameState": {
+          "type": "object",
+          "description": "Live synchronized game board/hand state map."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the room was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the latest room or move update."
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "gameType",
+        "hostId",
+        "hostName",
+        "hostAvatar",
+        "playerIds",
+        "playerProfiles",
+        "stake",
+        "minPlayers",
+        "maxPlayers",
+        "currentPlayers",
+        "status",
+        "visibility",
+        "inviteToken",
+        "invitedHandles",
+        "winnerId",
+        "gameState",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Immutable verified Squad Naira (NGN) deposit and wallet withdrawal ledger record used for idempotency and wallet history.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique transaction reference (Squad transaction_ref or WD_ withdrawal ref).",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the player who owns this transaction.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Player username recorded at the time of the withdrawal transaction.",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "type": {
+          "type": "string",
+          "enum": ["deposit", "withdrawal"],
+          "description": "Wallet ledger transaction direction."
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["squad", "beto_payout"],
+          "description": "Payment or payout provider."
+        },
+        "amountNaira": {
+          "type": "number",
+          "description": "Transaction amount in Nigerian Naira (NGN). Withdrawals are restricted to preset tiers (1700, 3500, 5300, 8000, 10700)."
+        },
+        "balanceAfter": {
+          "type": "number",
+          "description": "Player's updated Naira (NGN) balance immediately after a withdrawal transaction."
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["NGN"],
+          "description": "Transaction currency code."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "success"],
+          "description": "Approval status of the transaction ('pending' on new withdrawals, 'approved' when approved in backend/Firebase, 'success' on verified deposits)."
+        },
+        "bankName": {
+          "type": "string",
+          "description": "Destination Nigerian bank name for withdrawal transactions.",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "accountName": {
+          "type": "string",
+          "description": "Recipient account holder name entered for withdrawal transactions.",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "accountNumber": {
+          "type": "string",
+          "description": "Full 10-digit Nigerian bank account number (NUBAN) for withdrawal payout.",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{10}$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the transaction was recorded."
+        }
+      },
+      "required": [
+        "id",
+        "uid",
+        "type",
+        "provider",
+        "amountNaira",
+        "currency",
+        "status",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/players/{userId}": {
+      "schema": {
+        "$ref": "#/entities/Player"
+      },
+      "description": "Private player profile, wallet balance, and match stats owned strictly by the authenticated user."
+    },
+    "/leaderboard/{userId}": {
+      "schema": {
+        "$ref": "#/entities/LeaderboardEntry"
+      },
+      "description": "Public non-PII leaderboard entries synced from real registered players."
+    },
+    "/rooms/{roomId}": {
+      "schema": {
+        "$ref": "#/entities/Room"
+      },
+      "description": "Real-time multiplayer game rooms and invite-link matches."
+    },
+    "/transactions/{txRef}": {
+      "schema": {
+        "$ref": "#/entities/Transaction"
+      },
+      "description": "Immutable verified Squad Naira deposit ledger entries owned by the authenticated player."
+    }
+  }
+}
