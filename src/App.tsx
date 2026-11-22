@@ -261,12 +261,15 @@ export default function App() {
         setAuthReason(null);
         setActiveTab((prev) => (prev === 'auth' ? 'lobby' : prev));
       } catch (err) {
-        console.error('Failed to load player profile:', err);
-        setProfileLoadError(
-          isOfflineOrUnavailableError(err)
-            ? 'Unable to reach Cloud Firestore right now. Check your internet connection and retry.'
-            : 'Could not load your player profile. Please retry in a moment.'
-        );
+        if (isOfflineOrUnavailableError(err)) {
+          console.warn('Firestore temporarily unreachable while loading player profile.');
+          setProfileLoadError(
+            'Unable to reach Cloud Firestore right now. Check your internet connection and retry.'
+          );
+        } else {
+          console.error('Failed to load player profile:', err);
+          setProfileLoadError('Could not load your player profile. Please retry in a moment.');
+        }
       } finally {
         setRetryingProfile(false);
         setAuthReady(true);
@@ -304,8 +307,20 @@ export default function App() {
       void loadPlayerProfile(firebaseUser);
     };
     window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, [firebaseUser, currentUser, loadPlayerProfile]);
+    const retryTimer = profileLoadError
+      ? window.setTimeout(() => {
+          if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+            void loadPlayerProfile(firebaseUser);
+          }
+        }, 4500)
+      : undefined;
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      if (retryTimer !== undefined) {
+        window.clearTimeout(retryTimer);
+      }
+    };
+  }, [firebaseUser, currentUser, profileLoadError, loadPlayerProfile]);
 
   // Subscribe to real-time leaderboard, live rooms & verified wallet deposits once authenticated
   useEffect(() => {
@@ -413,26 +428,7 @@ export default function App() {
     }
     const user = auth.currentUser;
     if (user) {
-      const record = await getOrCreatePlayerProfile(user.uid, {
-        displayName: customHandle || user.displayName,
-        avatar: customAvatar || user.photoURL,
-        preferCustomName: Boolean(customHandle || customAvatar),
-      });
-      pendingAuthRef.current = null;
-      setCurrentUser({
-        id: record.uid,
-        name: record.displayName,
-        avatar: record.avatar,
-        balance: record.balance,
-        totalWins: record.totalWins,
-        totalLosses: record.totalLosses,
-        winStreak: record.winStreak,
-        title: record.title,
-        lastDailyClaimAt: record.lastDailyClaimAt,
-      });
-      setProfileLoadError(null);
-      setAuthReason(null);
-      setActiveTab('lobby');
+      await loadPlayerProfile(user, { customHandle, customAvatar });
     }
   };
 

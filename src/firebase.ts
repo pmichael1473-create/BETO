@@ -1,11 +1,16 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import {
+  Firestore,
   getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   enableNetwork,
   collection,
   doc,
   getDocFromServer,
+  getDocFromCache,
   getDoc,
   setDoc,
   updateDoc,
@@ -30,7 +35,29 @@ import {
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+let db: Firestore;
+try {
+  db = initializeFirestore(
+    app,
+    {
+      experimentalForceLongPolling: true,
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    },
+    firebaseConfig.firestoreDatabaseId
+  );
+} catch {
+  try {
+    db = initializeFirestore(
+      app,
+      { experimentalForceLongPolling: true },
+      firebaseConfig.firestoreDatabaseId
+    );
+  } catch {
+    db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+  }
+}
+
+export { db };
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
@@ -102,7 +129,7 @@ export function isOfflineOrUnavailableError(error: unknown): boolean {
   );
 }
 
-async function withOnlineRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
+async function withOnlineRetry<T>(fn: () => Promise<T>, maxAttempts = 4): Promise<T> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -113,7 +140,7 @@ async function withOnlineRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promis
         throw error;
       }
       await enableNetwork(db).catch(() => {});
-      await new Promise((resolve) => setTimeout(resolve, attempt * 800));
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
     }
   }
   throw lastError;
@@ -126,13 +153,18 @@ async function testConnection() {
     if (error instanceof Error && error.message.includes('the client is offline')) {
       try {
         await enableNetwork(db);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         await getDocFromServer(doc(db, 'test', 'connection'));
       } catch (retryError) {
         if (
           retryError instanceof Error &&
           retryError.message.includes('the client is offline')
         ) {
-          console.error('Please check your Firebase configuration.');
+          if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            console.warn('Browser appears offline; waiting for network connection to Firestore.');
+          } else {
+            console.error('Please check your Firebase configuration.');
+          }
         }
       }
     }
@@ -269,16 +301,31 @@ export async function getOrCreatePlayerProfile(
     const ref = doc(db, 'players', uid);
 
     let snap;
+    let loadedFromCache = false;
     try {
       snap = await withOnlineRetry(() => getDoc(ref));
     } catch (error) {
-      handleFirestoreError(error, OperationType.GET, path);
+      if (isOfflineOrUnavailableError(error)) {
+        try {
+          const cachedSnap = await getDocFromCache(ref);
+          if (cachedSnap.exists()) {
+            snap = cachedSnap;
+            loadedFromCache = true;
+            void enableNetwork(db).catch(() => {});
+          }
+        } catch {
+          // Cache miss; fall through to structured error
+        }
+      }
+      if (!snap) {
+        handleFirestoreError(error, OperationType.GET, path);
+      }
     }
 
     if (snap.exists()) {
       const data = snap.data() as PlayerRecord;
       let resolved = data;
-      if (defaults.preferCustomName && (defaults.displayName || defaults.avatar)) {
+      if (!loadedFromCache && defaults.preferCustomName && (defaults.displayName || defaults.avatar)) {
         const nextName = defaults.displayName ? sanitizeDisplayName(defaults.displayName) : data.displayName;
         const nextAvatar = (defaults.avatar || data.avatar || DEFAULT_AVATAR).slice(0, 500);
         if (nextName !== data.displayName || nextAvatar !== data.avatar) {
@@ -296,7 +343,11 @@ export async function getOrCreatePlayerProfile(
           }
         }
       }
-      await syncLeaderboardEntry(uid, resolved);
+      if (!loadedFromCache) {
+        await syncLeaderboardEntry(uid, resolved).catch((err) => {
+          if (!isOfflineOrUnavailableError(err)) throw err;
+        });
+      }
       return resolved;
     }
 
