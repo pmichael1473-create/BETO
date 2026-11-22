@@ -103,12 +103,38 @@ export function loadSquadWidgetScript(): Promise<void> {
   return scriptPromise;
 }
 
+function tryParseJson<T>(raw: string): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchSquadConfig(): Promise<SquadClientConfig> {
   const res = await fetch('/api/payments/squad/config');
   if (!res.ok) {
-    throw new Error('Could not check Squad gateway configuration.');
+    const errorText = await res.text();
+    console.warn('Squad config error:', res.status, errorText);
+    return {
+      configured: false,
+      hasPublicKey: false,
+      publicKey: null,
+      mode: 'sandbox',
+    };
   }
-  return (await res.json()) as SquadClientConfig;
+  const raw = await res.text();
+  const data = tryParseJson<SquadClientConfig>(raw);
+  if (!data || typeof data.configured !== 'boolean') {
+    return {
+      configured: false,
+      hasPublicKey: false,
+      publicKey: null,
+      mode: 'sandbox',
+    };
+  }
+  return data;
 }
 
 export async function initiateSquadPayment(params: {
@@ -123,9 +149,25 @@ export async function initiateSquadPayment(params: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
-  const data = (await res.json()) as SquadInitiateResponse & { message?: string };
+
   if (!res.ok) {
-    throw new Error(data.message || 'Failed to initiate Squad checkout.');
+    const errorText = await res.text();
+    console.error('Server error:', res.status, errorText);
+    const parsedError = tryParseJson<{ message?: string }>(errorText);
+    if (parsedError?.message) {
+      throw new Error(parsedError.message);
+    }
+    throw new Error(
+      res.status === 404
+        ? 'Squad payment API route was not found (404). Redeploy with /api routes and configure SQUAD_SECRET_KEY.'
+        : `Request failed: ${res.status}`
+    );
+  }
+
+  const raw = await res.text();
+  const data = tryParseJson<SquadInitiateResponse>(raw);
+  if (!data) {
+    throw new Error('Server returned an unexpected non-JSON response while starting Squad checkout.');
   }
   return data;
 }
@@ -136,9 +178,25 @@ export async function verifySquadPayment(transactionRef: string): Promise<SquadV
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ transactionRef }),
   });
-  const data = (await res.json()) as SquadVerifyResponse & { message?: string };
+
   if (!res.ok) {
-    throw new Error(data.message || 'Failed to verify Squad transaction.');
+    const errorText = await res.text();
+    console.error('Server error:', res.status, errorText);
+    const parsedError = tryParseJson<{ message?: string }>(errorText);
+    if (parsedError?.message) {
+      throw new Error(parsedError.message);
+    }
+    throw new Error(
+      res.status === 404
+        ? 'Squad verification API route was not found (404). Redeploy with /api routes.'
+        : `Request failed: ${res.status}`
+    );
+  }
+
+  const raw = await res.text();
+  const data = tryParseJson<SquadVerifyResponse>(raw);
+  if (!data) {
+    throw new Error('Server returned an unexpected non-JSON response while verifying Squad payment.');
   }
   return data;
 }

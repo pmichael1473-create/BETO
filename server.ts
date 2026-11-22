@@ -175,7 +175,8 @@ async function startServer() {
         }),
       });
 
-      const payload = (await response.json()) as {
+      const rawText = await response.text();
+      let payload: {
         status?: number;
         success?: boolean;
         message?: string;
@@ -183,7 +184,12 @@ async function startServer() {
           checkout_url?: string;
           transaction_ref?: string;
         };
-      };
+      } = {};
+      try {
+        payload = rawText ? (JSON.parse(rawText) as typeof payload) : {};
+      } catch {
+        payload = { message: rawText.slice(0, 200) };
+      }
 
       if (!response.ok || payload.success === false) {
         res.status(response.status >= 400 ? response.status : 502).json({
@@ -241,7 +247,8 @@ async function startServer() {
         }
       );
 
-      const payload = (await response.json()) as {
+      const rawText = await response.text();
+      let payload: {
         status?: number;
         success?: boolean;
         message?: string;
@@ -252,7 +259,12 @@ async function startServer() {
           transaction_ref?: string;
           email?: string;
         };
-      };
+      } = {};
+      try {
+        payload = rawText ? (JSON.parse(rawText) as typeof payload) : {};
+      } catch {
+        payload = { message: rawText.slice(0, 200) };
+      }
 
       if (!response.ok || !payload.data) {
         res.status(response.status >= 400 ? response.status : 502).json({

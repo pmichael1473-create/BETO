@@ -103,6 +103,11 @@ export function AuthPage({
         setErrorMsg('Sign-in popup was closed before completing. Please try again.');
       } else if (code === 'auth/popup-blocked') {
         setErrorMsg('Popup was blocked by your browser. Please allow popups for this site and try again.');
+      } else if (code === 'auth/unauthorized-domain') {
+        const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+        setErrorMsg(
+          `Domain "${host}" is not yet authorized in Firebase Authentication. Add it in Firebase Console → Authentication → Settings → Authorized domains.`
+        );
       } else {
         setErrorMsg(err instanceof Error ? err.message : 'Authentication failed. Please try again.');
       }
