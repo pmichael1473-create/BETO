@@ -57,7 +57,7 @@ export interface WalletTransaction {
   uid: string;
   displayName?: string;
   type?: 'deposit' | 'withdrawal';
-  provider: 'squad' | 'beto_payout';
+  provider: 'beto_wallet' | 'beto_payout';
   amountNaira: number;
   balanceAfter?: number;
   currency: 'NGN';

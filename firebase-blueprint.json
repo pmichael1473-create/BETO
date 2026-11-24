@@ -261,12 +261,12 @@
     },
     "Transaction": {
       "title": "Transaction",
-      "description": "Immutable verified Squad Naira (NGN) deposit and wallet withdrawal ledger record used for idempotency and wallet history.",
+      "description": "Immutable Naira (NGN) wallet deposit and withdrawal ledger record used for idempotency and wallet history.",
       "type": "object",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique transaction reference (Squad transaction_ref or WD_ withdrawal ref).",
+          "description": "Unique transaction reference (DEP_ deposit ref or WD_ withdrawal ref).",
           "maxLength": 128,
           "pattern": "^[a-zA-Z0-9_\\-]+$"
         },
@@ -289,8 +289,8 @@
         },
         "provider": {
           "type": "string",
-          "enum": ["squad", "beto_payout"],
-          "description": "Payment or payout provider."
+          "enum": ["beto_wallet", "beto_payout"],
+          "description": "Wallet deposit or payout provider."
         },
         "amountNaira": {
           "type": "number",
@@ -308,7 +308,7 @@
         "status": {
           "type": "string",
           "enum": ["pending", "approved", "success"],
-          "description": "Approval status of the transaction ('pending' on new withdrawals, 'approved' when approved in backend/Firebase, 'success' on verified deposits)."
+          "description": "Approval status of the transaction ('pending' on new withdrawals, 'approved' when approved in backend/Firebase, 'success' on wallet deposits)."
         },
         "bankName": {
           "type": "string",
@@ -370,7 +370,7 @@
       "schema": {
         "$ref": "#/entities/Transaction"
       },
-      "description": "Immutable verified Squad Naira deposit ledger entries owned by the authenticated player."
+      "description": "Immutable Naira wallet deposit and withdrawal ledger entries owned by the authenticated player."
     }
   }
 }

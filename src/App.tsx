@@ -32,7 +32,6 @@ import {
   subscribeRooms,
   subscribeRoom,
   subscribePlayerTransactions,
-  creditSquadDeposit,
   createMultiplayerRoom,
   updateRoomInvitedHandles,
   getRoomById,
@@ -45,7 +44,6 @@ import {
   sanitizeDisplayName,
   MIN_ROOM_PLAYERS,
 } from './firebase';
-import { verifySquadPayment } from './utils/squad';
 
 interface AuthUserProfile extends UserProfile {
   lastDailyClaimAt: number;
@@ -119,23 +117,6 @@ function clearInviteQueryParam() {
   }
 }
 
-function parseInitialSquadTx(): string | null {
-  if (typeof window === 'undefined') return null;
-  const params = new URLSearchParams(window.location.search);
-  const raw = (params.get('squad_tx') || params.get('reference') || '').trim();
-  return raw && isValidDocId(raw) ? raw : null;
-}
-
-function clearSquadQueryParams() {
-  if (typeof window === 'undefined') return;
-  const url = new URL(window.location.href);
-  if (url.searchParams.has('squad_tx') || url.searchParams.has('reference')) {
-    url.searchParams.delete('squad_tx');
-    url.searchParams.delete('reference');
-    window.history.replaceState({}, '', url.pathname + url.search + url.hash);
-  }
-}
-
 export default function App() {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -176,9 +157,6 @@ export default function App() {
   const [rooms, setRooms] = useState<GameRoom[]>([]);
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
   const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([]);
-  const [pendingSquadTxRef, setPendingSquadTxRef] = useState<string | null>(() =>
-    parseInitialSquadTx()
-  );
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [activeRoom, setActiveRoom] = useState<GameRoom | null>(null);
   const activeRoomRef = useRef<GameRoom | null>(null);
@@ -337,42 +315,6 @@ export default function App() {
     };
   }, [authReady, firebaseUser, currentUser]);
 
-  // Verify Squad payment automatically on callback redirect (?squad_tx=...)
-  useEffect(() => {
-    if (!authReady || !firebaseUser || !currentUser || !pendingSquadTxRef) return;
-    const txRef = pendingSquadTxRef;
-    setPendingSquadTxRef(null);
-    clearSquadQueryParams();
-
-    void (async () => {
-      try {
-        const verification = await verifySquadPayment(txRef);
-        if (!verification.verified || !verification.amountNaira) {
-          showNotice(
-            verification.message || `Squad payment ${txRef} is ${verification.status || 'pending'}.`
-          );
-          return;
-        }
-        const credited = await creditSquadDeposit({
-          uid: firebaseUser.uid,
-          transactionRef: verification.transactionRef || txRef,
-          amountNaira: verification.amountNaira,
-        });
-        setCurrentUser((prev) =>
-          prev ? { ...prev, balance: credited.newBalance } : prev
-        );
-        showNotice(
-          credited.alreadyCredited
-            ? `Squad payment ${txRef} was already credited.`
-            : `Squad payment verified! +₦${verification.amountNaira.toLocaleString()} added to your wallet.`
-        );
-      } catch (err) {
-        console.error('Squad callback verification failed:', err);
-        showNotice('Could not verify Squad callback transaction. Open Wallet to retry.');
-      }
-    })();
-  }, [authReady, firebaseUser, currentUser, pendingSquadTxRef, showNotice]);
-
   // Subscribe to the currently active room (waiting room or live match)
   useEffect(() => {
     if (!authReady || !firebaseUser || !activeRoomId) {
@@ -443,7 +385,7 @@ export default function App() {
     setActiveTab('auth');
   };
 
-  const handleSquadCredited = useCallback((newBalance: number) => {
+  const handleWalletBalanceUpdated = useCallback((newBalance: number) => {
     setCurrentUser((prev) => {
       if (!prev) return prev;
       const updated = { ...prev, balance: newBalance };
@@ -946,12 +888,10 @@ export default function App() {
             initialTab={walletInitialTab}
             onClose={() => setIsWalletOpen(false)}
             uid={currentUser.id}
-            playerEmail={firebaseUser?.email || ''}
-            playerName={currentUser.name}
             balance={currentUser.balance}
             transactions={walletTransactions}
-            onSquadCredited={(newBalance) => handleSquadCredited(newBalance)}
-            onWithdrawn={(newBalance) => handleSquadCredited(newBalance)}
+            onDeposited={(newBalance) => handleWalletBalanceUpdated(newBalance)}
+            onWithdrawn={(newBalance) => handleWalletBalanceUpdated(newBalance)}
           />
 
           <GameSelectModal

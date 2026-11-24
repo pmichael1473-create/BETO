@@ -1107,16 +1107,18 @@ export async function cancelWaitingRoom(roomId: string): Promise<void> {
   }
 }
 
-export async function creditSquadDeposit(params: {
+export async function creditWalletDeposit(params: {
   uid: string;
-  transactionRef: string;
   amountNaira: number;
-}): Promise<{ alreadyCredited: boolean; newBalance: number }> {
-  if (!isValidDocId(params.transactionRef)) {
-    throw new Error('Invalid Squad transaction reference.');
+  transactionRef?: string;
+}): Promise<{ alreadyCredited: boolean; newBalance: number; transactionRef: string; amountNaira: number }> {
+  const randomSuffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const transactionRef = (params.transactionRef || `DEP_${Date.now()}_${randomSuffix}`).trim();
+  if (!isValidDocId(transactionRef)) {
+    throw new Error('Invalid wallet deposit reference.');
   }
   const safeAmount = Math.max(100, Math.min(500000, Math.round(params.amountNaira)));
-  const txDocRef = doc(db, 'transactions', params.transactionRef);
+  const txDocRef = doc(db, 'transactions', transactionRef);
   const playerRef = doc(db, 'players', params.uid);
 
   let result: { alreadyCredited: boolean; newBalance: number; player?: PlayerRecord } = {
@@ -1144,10 +1146,10 @@ export async function creditSquadDeposit(params: {
 
       const nextBalance = clampBalance((playerData.balance || 0) + safeAmount);
       tx.set(txDocRef, {
-        id: params.transactionRef,
+        id: transactionRef,
         uid: params.uid,
         type: 'deposit',
-        provider: 'squad',
+        provider: 'beto_wallet',
         amountNaira: safeAmount,
         currency: 'NGN',
         status: 'success',
@@ -1165,7 +1167,7 @@ export async function creditSquadDeposit(params: {
       };
     });
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `transactions/${params.transactionRef}`);
+    handleFirestoreError(error, OperationType.WRITE, `transactions/${transactionRef}`);
   }
 
   if (!result.alreadyCredited && result.player) {
@@ -1182,6 +1184,8 @@ export async function creditSquadDeposit(params: {
   return {
     alreadyCredited: result.alreadyCredited,
     newBalance: result.newBalance,
+    transactionRef,
+    amountNaira: safeAmount,
   };
 }
 
@@ -1312,7 +1316,7 @@ export function subscribePlayerTransactions(
           uid?: string;
           displayName?: string;
           type?: 'deposit' | 'withdrawal';
-          provider?: 'squad' | 'beto_payout';
+          provider?: string;
           amountNaira?: number;
           balanceAfter?: number;
           currency?: 'NGN';
@@ -1325,6 +1329,9 @@ export function subscribePlayerTransactions(
         };
         const isWithdrawal =
           data.type === 'withdrawal' || data.provider === 'beto_payout';
+        const resolvedProvider: 'beto_wallet' | 'beto_payout' = isWithdrawal
+          ? 'beto_payout'
+          : 'beto_wallet';
         const rawStatus =
           typeof data.status === 'string' ? data.status.trim().toLowerCase() : '';
         const resolvedStatus: 'pending' | 'approved' | 'success' =
@@ -1343,7 +1350,7 @@ export function subscribePlayerTransactions(
           uid: data.uid || uid,
           displayName: data.displayName,
           type: data.type || (isWithdrawal ? 'withdrawal' : 'deposit'),
-          provider: data.provider || 'squad',
+          provider: resolvedProvider,
           amountNaira: typeof data.amountNaira === 'number' ? data.amountNaira : 0,
           balanceAfter: typeof data.balanceAfter === 'number' ? data.balanceAfter : undefined,
           currency: data.currency || 'NGN',

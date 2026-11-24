@@ -17,9 +17,9 @@
   - Playing moves is an explicit action branch only allowed by seated players (`request.auth.uid in existing().playerIds`) while `existing().status == "in_progress"` AND `existing().currentPlayers >= 2`, keeping `hostId`, `playerIds`, `playerProfiles`, `stake`, `minPlayers`, `maxPlayers`, `gameType`, `visibility`, `inviteToken`, `invitedHandles`, and `createdAt` immutable.
   - Once `existing().status == "completed"`, all further updates are denied (Terminal State Locking).
   - Deleting a room is only permitted by `hostId` while `existing().status == "waiting"`.
-- `/transactions/{txRef}` records verified Squad Naira (`NGN`) deposits and Naira wallet withdrawals for idempotency and wallet history:
+- `/transactions/{txRef}` records Naira (`NGN`) wallet deposits and Naira wallet withdrawals for idempotency and wallet history:
   - Only signed-in, verified users can create a transaction document where `id == txRef`, `uid == request.auth.uid`, `currency == "NGN"`, and `createdAt == request.time`.
-  - Deposits require `type == "deposit"`, `provider == "squad"`, `status == "success"`, and `amountNaira` between `100` and `500000`.
+  - Deposits require `type == "deposit"`, `provider == "beto_wallet"`, `status == "success"`, and `amountNaira` between `100` and `500000`.
   - Withdrawals require `type == "withdrawal"`, `provider == "beto_payout"`, `status == "pending"` on creation (admin/backend changes it to `"approved"`), `displayName` (player username), `amountNaira` strictly in `[1700, 3500, 5300, 8000, 10700]`, `balanceAfter` matching the player's post-withdrawal balance, valid `bankName`, `accountName` (2–80 chars), and 10-digit `accountNumber`, with atomic balance deduction on `/players/{uid}` verified via `get()`/`getAfter()`.
   - `get` is permitted for non-existent documents (`resource == null`, to support `runTransaction` idempotency checks) or strictly by the owner (`resource.data.uid == request.auth.uid`).
   - `list` strictly enforces `resource.data.uid == request.auth.uid`.

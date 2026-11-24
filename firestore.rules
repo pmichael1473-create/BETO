@@ -308,7 +308,7 @@ service cloud.firestore {
         && data.type is string
         && data.type == 'deposit'
         && data.provider is string
-        && data.provider == 'squad'
+        && data.provider == 'beto_wallet'
         && data.amountNaira is number
         && data.amountNaira >= 100
         && data.amountNaira <= 500000
